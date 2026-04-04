@@ -1,0 +1,41 @@
+<?php
+session_start();
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode([]);
+    exit();
+}
+
+include 'db.php';
+$user_id = (int)$_SESSION['user_id'];
+
+$stmt = $conn->prepare(
+    "SELECT order_group, MIN(status) as status
+     FROM orders
+     WHERE user_id = ?
+     GROUP BY order_group
+     ORDER BY order_group DESC
+     LIMIT 20"
+);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// If all items in a group are Ready, status = Ready
+// MIN('Pending','Ready') = 'Pending' — so we use MAX
+$stmt2 = $conn->prepare(
+    "SELECT order_group,
+            CASE WHEN SUM(CASE WHEN status='Pending' THEN 1 ELSE 0 END) = 0 THEN 'Ready' ELSE 'Pending' END AS status
+     FROM orders
+     WHERE user_id = ?
+     GROUP BY order_group
+     ORDER BY order_group DESC
+     LIMIT 20"
+);
+$stmt2->bind_param("i", $user_id);
+$stmt2->execute();
+$result = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
+
+echo json_encode($result);
+?>
