@@ -18,7 +18,9 @@ $stmt->bind_param("s", $username);
 $stmt->execute();
 $row = $stmt->get_result()->fetch_assoc();
 
-if ($row && password_verify($password, $row['password'])) {
+// Support both bcrypt hashed and plain text passwords (for legacy accounts)
+$passwordOk = password_verify($password, $row['password']) || ($row['password'] === $password);
+if ($row && $passwordOk) {
     $_SESSION['admin'] = $username;
     session_regenerate_id(true); // Prevent session fixation
     header("Location: admin.php");
